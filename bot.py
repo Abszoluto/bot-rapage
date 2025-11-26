@@ -98,18 +98,18 @@ async def ytdlp_extract(query: str) -> Optional[Dict]:
     loop = asyncio.get_running_loop()
 
     def _extract() -> Optional[Dict]:
-    with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-        try:
-            return ydl.extract_info(query, download=False)
-        except Exception as e:
-            err_msg = str(e)
-            print(f"[yt-dlp] Error extracting info for query '{query}': {err_msg}")
-            if "Sign in to confirm you're not a bot" in err_msg:
-                print("[yt-dlp] YouTube está pedindo login/cookies. "
-                      "Configure YTDLP_COOKIES_FILE apontando para um arquivo de cookies do YouTube.")
-            return None
+        with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+            try:
+                return ydl.extract_info(query, download=False)
+            except Exception as e:
+                err_msg = str(e)
+                print(f"[yt-dlp] Error extracting info for query '{query}': {err_msg}")
+                if "Sign in to confirm you're not a bot" in err_msg:
+                    print("[yt-dlp] YouTube está pedindo login/cookies. "
+                        "Configure YTDLP_COOKIES_FILE apontando para um arquivo de cookies do YouTube.")
+                return None
 
-    return await loop.run_in_executor(None, _extract)
+        return await loop.run_in_executor(None, _extract)
 
 
 def build_track_from_info(info: Dict, requester_id: int) -> Track:
