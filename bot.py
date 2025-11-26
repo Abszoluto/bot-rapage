@@ -22,7 +22,7 @@ if not DISCORD_TOKEN:
 
 # FFmpeg executable (default assumes ffmpeg is in PATH)
 FFMPEG_EXECUTABLE = os.getenv("FFMPEG_EXECUTABLE", "ffmpeg")
-
+COOKIES_FILE = os.getenv("YTDLP_COOKIES_FILE")
 # =========================
 # Data Models
 # =========================
@@ -79,6 +79,16 @@ YTDL_OPTIONS = {
     "source_address": "0.0.0.0",
 }
 
+# Se um arquivo de cookies estiver configurado, usa no yt-dlp
+if COOKIES_FILE:
+    if os.path.exists(COOKIES_FILE):
+        print(f"[yt-dlp] Usando cookies do arquivo: {COOKIES_FILE}")
+        YTDL_OPTIONS["cookiefile"] = COOKIES_FILE
+    else:
+        print(f"[yt-dlp] Aviso: YTDLP_COOKIES_FILE definido, mas o arquivo não existe: {COOKIES_FILE}")
+else:
+    print("[yt-dlp] Nenhum arquivo de cookies configurado (YTDLP_COOKIES_FILE não definido).")
+
 
 async def ytdlp_extract(query: str) -> Optional[Dict]:
     """
@@ -88,12 +98,16 @@ async def ytdlp_extract(query: str) -> Optional[Dict]:
     loop = asyncio.get_running_loop()
 
     def _extract() -> Optional[Dict]:
-        with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-            try:
-                return ydl.extract_info(query, download=False)
-            except Exception as e:
-                print(f"[yt-dlp] Error extracting info for query '{query}': {e}")
-                return None
+    with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+        try:
+            return ydl.extract_info(query, download=False)
+        except Exception as e:
+            err_msg = str(e)
+            print(f"[yt-dlp] Error extracting info for query '{query}': {err_msg}")
+            if "Sign in to confirm you're not a bot" in err_msg:
+                print("[yt-dlp] YouTube está pedindo login/cookies. "
+                      "Configure YTDLP_COOKIES_FILE apontando para um arquivo de cookies do YouTube.")
+            return None
 
     return await loop.run_in_executor(None, _extract)
 
