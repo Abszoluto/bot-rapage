@@ -147,7 +147,7 @@ async def ensure_voice(interaction: discord.Interaction) -> Optional[discord.Voi
     voice_client = state.voice_client
 
     if voice_client is None or not voice_client.is_connected():
-        voice_client = await target_channel.connect()
+        voice_client = await target_channel.connect(self_deaf=True, timeout=20.0)
         state.voice_client = voice_client
     elif voice_client.channel != target_channel:
         await voice_client.move_to(target_channel)

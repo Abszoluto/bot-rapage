@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # Instala o FFmpeg
-RUN apt update && apt install -y ffmpeg && apt clean
+RUN apt update && apt install -y ffmpeg libopus-dev && apt clean
 
 # Pasta da aplicação
 WORKDIR /app
