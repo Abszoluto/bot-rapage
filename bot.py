@@ -109,7 +109,7 @@ async def ytdlp_extract(query: str) -> Optional[Dict]:
                         "Configure YTDLP_COOKIES_FILE apontando para um arquivo de cookies do YouTube.")
                 return None
 
-        return await loop.run_in_executor(None, _extract)
+    return await loop.run_in_executor(None, _extract)
 
 
 def build_track_from_info(info: Dict, requester_id: int) -> Track:
