@@ -279,34 +279,37 @@ async def leave(interaction: discord.Interaction):
 @bot.tree.command(name="play", description="Reproduz uma música ou adiciona à fila.")
 @app_commands.describe(query="Link ou nome da música")
 async def play(interaction: discord.Interaction, query: str):
-    # tenta responder a interação; se já tiver expirado, avisa no canal e sai
-    try:
-        if not interaction.response.is_done():
-            await interaction.response.defer()  # não-efêmero
-    except NotFound:
-        # o Discord já “esqueceu” essa interação (timeout / cold start)
-        if interaction.channel is not None:
-            try:
-                await interaction.channel.send(
-                    "Demorei demais pra responder essa interação 😭\n"
-                    "Tenta usar o comando `/play` de novo, por favor."
-                )
-            except HTTPException as e:
-                print(f"[Interaction] Falha ao enviar mensagem de fallback: {e}")
-        return
-
+    """
+    /play sem defer(), responde rápido e depois faz o trabalho pesado.
+    Isso evita o erro de Unknown interaction (10062).
+    """
     guild = interaction.guild
     if guild is None:
         return
 
-    state = get_music_state(guild.id)
-
-    # Garante que o bot está no canal de voz certo
-    vc = await ensure_voice(interaction)
-    if vc is None:
+    # 1) responde rápido pra "travar" a interação
+    try:
+        await interaction.response.send_message(f"🎵 Procurando: **{query}** ...")
+    except HTTPException as e:
+        print(f"[Interaction] Falha ao enviar resposta inicial do /play: {e}")
+        if interaction.channel is not None:
+            try:
+                await interaction.channel.send(
+                    "Tive um problema pra responder esse comando, tenta usar `/play` de novo."
+                )
+            except Exception as e2:
+                print(f"[Interaction] Falha ao enviar mensagem de fallback no canal: {e2}")
         return
 
-    # Extrai info com yt-dlp (URL direta ou pesquisa)
+    state = get_music_state(guild.id)
+
+    # 2) garante que estamos no canal de voz do usuário
+    vc = await ensure_voice(interaction)
+    if vc is None:
+        # ensure_voice já mandou a mensagem de erro
+        return
+
+    # 3) extrai info com yt-dlp (URL ou busca)
     info = await ytdlp_extract(query)
     if info is None:
         await interaction.followup.send(
@@ -315,7 +318,6 @@ async def play(interaction: discord.Interaction, query: str):
         )
         return
 
-    # Cria Track
     track = build_track_from_info(info, requester_id=interaction.user.id)
     if not track.stream_url:
         await interaction.followup.send(
@@ -326,12 +328,12 @@ async def play(interaction: discord.Interaction, query: str):
 
     state.queue.append(track)
 
-    # Se nada está tocando, iniciar playback
+    # 4) se nada está tocando, inicia playback; senão, só avisa que entrou na fila
     if not vc.is_playing() and not vc.is_paused():
-        await interaction.followup.send(f"Tocando agora: **{track.title}**")
+        await interaction.followup.send(f"▶️ Tocando agora: **{track.title}**")
         await start_playback(guild)
     else:
-        await interaction.followup.send(f"Adicionado à fila: **{track.title}**")
+        await interaction.followup.send(f"➕ Adicionado à fila: **{track.title}**")
 
 
 @bot.tree.command(name="skip", description="Pula a música atual.")
