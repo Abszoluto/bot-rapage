@@ -4,7 +4,7 @@ FROM python:3.11-slim
 RUN apt update && apt install -y ffmpeg && apt clean
 
 # Pasta da aplicação
-WORKDIR /app
+WORKDIR /
 
 # Copia arquivos
 COPY . .
