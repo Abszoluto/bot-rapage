@@ -6,6 +6,7 @@ from typing import Deque, Dict, Optional, List
 import discord
 from discord.ext import commands
 from discord import app_commands
+from discord.errors import NotFound, HTTPException  # IMPORTANTE
 from dotenv import load_dotenv
 import yt_dlp
 from collections import deque
@@ -20,7 +21,6 @@ if not DISCORD_TOKEN:
     raise RuntimeError("DISCORD_TOKEN is not set in the environment variables or .env file.")
 
 # FFmpeg executable (default assumes ffmpeg is in PATH)
-# Em produção (Railway, etc.), você instala o ffmpeg no container e deixa só "ffmpeg"
 FFMPEG_EXECUTABLE = os.getenv("FFMPEG_EXECUTABLE", "ffmpeg")
 
 # =========================
@@ -279,8 +279,21 @@ async def leave(interaction: discord.Interaction):
 @bot.tree.command(name="play", description="Reproduz uma música ou adiciona à fila.")
 @app_commands.describe(query="Link ou nome da música")
 async def play(interaction: discord.Interaction, query: str):
-    # Resposta não-efêmera: todo mundo no canal vê o comando
-    await interaction.response.defer()
+    # tenta responder a interação; se já tiver expirado, avisa no canal e sai
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.defer()  # não-efêmero
+    except NotFound:
+        # o Discord já “esqueceu” essa interação (timeout / cold start)
+        if interaction.channel is not None:
+            try:
+                await interaction.channel.send(
+                    "Demorei demais pra responder essa interação 😭\n"
+                    "Tenta usar o comando `/play` de novo, por favor."
+                )
+            except HTTPException as e:
+                print(f"[Interaction] Falha ao enviar mensagem de fallback: {e}")
+        return
 
     guild = interaction.guild
     if guild is None:
@@ -322,7 +335,7 @@ async def play(interaction: discord.Interaction, query: str):
 
 
 @bot.tree.command(name="skip", description="Pula a música atual.")
-async def skip(interaction: discord.Interaction):
+async def skip_cmd(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     guild = interaction.guild
     if guild is None:
@@ -342,9 +355,14 @@ async def skip(interaction: discord.Interaction):
     vc.stop()
     await interaction.followup.send("Pulei a música atual.", ephemeral=True)
 
+
 @bot.tree.command(name="zeze", description="?")
-async def skip(interaction: discord.Interaction):
-    await interaction.followup.send("Hello zeze, how are you my friend? good morning", ephemeral=True)
+async def zeze_cmd(interaction: discord.Interaction):
+    # simples, não precisa de defer
+    await interaction.response.send_message(
+        "Fala Zezé, bom dia cara, beleza? 🐸", ephemeral=True
+    )
+
 
 @bot.tree.command(name="pause", description="Pausa a música atual.")
 async def pause(interaction: discord.Interaction):
